@@ -3,87 +3,113 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import time
 from datetime import datetime
+import threading
 
-# Initialize Firebase
-cred = credentials.Certificate('path/to/your/firebase-key.json')
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+#Initialize Firebase
+try:
+    cred = credentials.Certificate('garagedoorbackend-firebase-adminsdk-k64wf-23f215d05e.json')
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+except Exception as e:
+    print("Firebase initialization error:", e)
+    exit(1)
 
-# GPIO Setup
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
+#GPIO Setup
+try:
+    GPIO.setmode(GPIO.BOARD)  
+    GPIO.setwarnings(False)
+    GPIO.setup(29, GPIO.IN, GPIO.PUD_UP) #Door 1 is Closed sensor
+    GPIO.setup(31, GPIO.IN, GPIO.PUD_UP) #Door 1 is Open sensor
+    GPIO.setup(33, GPIO.IN, GPIO.PUD_UP) #Door 2 is Closed sensor
+    GPIO.setup(37, GPIO.IN, GPIO.PUD_UP) #Door 2 is Open sensor
+
+    GPIO.setup(7, GPIO.OUT)          #Door 1 Relay to Open Door
+    GPIO.output(7, GPIO.HIGH)
+    GPIO.setup(11, GPIO.OUT)     #Not in use
+    GPIO.output(11, GPIO.HIGH)
+    GPIO.setup(13, GPIO.OUT)     #Door 2 Relay to Open Door
+    GPIO.output(13, GPIO.HIGH)
+    GPIO.setup(15, GPIO.OUT)     #Not in use
+    GPIO.output(15, GPIO.HIGH)
+except Exception as e:
+    print("GPIO setup error:", e)
+    exit(1)
 
 # Define GPIO pins
-RELAY_PINS = {'door1': 17, 'door2': 27}
-MAGNETIC_SWITCHES = {'door1': [22, 23], 'door2': [24, 25]}
+RELAY_PINS = {'door1': 7, 'door2': 13}
+MAGNETIC_SWITCHES = {'door1': [29, 31], 'door2': [33, 37]}
 
-# Set up relay pins
-for pin in RELAY_PINS.values():
-    GPIO.setup(pin, GPIO.OUT)
-    GPIO.output(pin, GPIO.HIGH)  # Relays are active low
+def excute_command():
+    try:
+        for door_id, pin in RELAY_PINS.items():
+            com = db.collection('Commands').document(f'{door_id}').get()
+            stt = db.collection('CurrentStatus').document(f'{door_id}').get()
+            if com.exists and stt.exists:
+                command = com.to_dict().get('command', '')
+                current_status = stt.to_dict().get('status', '')
+                print(current_status," current status\n")
+                print(command ," command\n")
 
-# Set up magnetic switch pins
-for pins in MAGNETIC_SWITCHES.values():
-    for pin in pins:
-        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                if current_status == 'opening' or current_status == 'closing':
+                    continue
+                elif current_status != command:
+                    GPIO.output(pin, GPIO.LOW)  
+                    time.sleep(1)  
+                    GPIO.output(pin, GPIO.HIGH)
+    except Exception as e:
+        print("Error in excute_command:", e)
 
-# Initialize door status to monitor changes
-last_status = {door_id: None for door_id in MAGNETIC_SWITCHES}
+def update_status():
+    try:
+        for door_id, pins in MAGNETIC_SWITCHES.items():
+            lst_stt = db.collection('CurrentStatus').document(door_id).get()
+            if lst_stt.exists:
+                last_status = lst_stt.to_dict().get('status', '')
+            switch_1 = GPIO.input(pins[0])
+            switch_2 = GPIO.input(pins[1])
 
-def read_command():
-    for door_id, pin in RELAY_PINS.items():
-        doc = db.collection('Commands').document(f'{door_id}_command').get()
+            if switch_1 == GPIO.LOW:
+                current_status = 'close'
+            elif switch_2 == GPIO.LOW:
+                current_status = 'open'
+            elif lst_stt.exists:
+                if last_status == 'open' or last_status == 'closing':
+                    current_status = 'closing'
+                elif last_status == 'close' or last_status == 'opening':
+                    current_status = 'opening'
+                    
+            if lst_stt.exists and current_status != last_status:
+                db.collection('CurrentStatus').document(door_id).set({'status': current_status}, merge=True)
+                if current_status in ['open', 'close']:
+                    db.collection('Logs').add({
+                        'door': door_id,
+                        'status': f'door {current_status}ed',
+                        'timestamp': datetime.now()
+                    })
+    except Exception as e:
+        print("Error in update_status:", e)
 
-        if doc.exists:
-            command = doc.to_dict().get('command', '')
-
-            if command == 'open' or command == 'close':
-                # Activate the relay (simulate button press)
-                GPIO.output(pin, GPIO.LOW)  # Assume LOW to activate
-                time.sleep(1)  # Hold the button for 1 second
-
-                # Deactivate the relay (release button)
-                GPIO.output(pin, GPIO.HIGH)  # Assume HIGH to deactivate
-                time.sleep(2)  # Wait for 2 seconds before any further action
-
-def update_status_and_log():
-    for door_id, pins in MAGNETIC_SWITCHES.items():
-        # Read the current status from the switches
-        if GPIO.input(pins[0]) == GPIO.LOW or GPIO.input(pins[1]) == GPIO.LOW:
-            current_status = 'open'
-        else:
-            current_status = 'closed'
-
-        # Retrieve the last recorded command to determine if the door is opening or closing
-        command_doc = db.collection('Commands').document(f'{door_id}_command').get()
-        if command_doc.exists:
-            last_command = command_doc.to_dict().get('command', '')
-
-            # Determine transitional states based on the last command
-            if last_command == 'open' and current_status == 'closed':
-                current_status = 'opening'
-            elif last_command == 'close' and current_status == 'open':
-                current_status = 'closing'
-
-        # Check for status change and update Firestore and logs if there is a change
-        if last_status[door_id] != current_status:
-            last_status[door_id] = current_status
-            
-            # Update the current status in Firestore
-            db.collection('CurrentStatus').document(door_id).set({'status': current_status}, merge=True)
-
-            # Log the change
-            db.collection('Logs').add({
-                'door': door_id,
-                'status': f'door {current_status}',
-                'timestamp': datetime.now()
-            })
 
 def main():
-    while True:
-        read_command()
-        update_status_and_log()
-        time.sleep(1) 
+    try:
+        while True:
+            excute_command()
+            update_status()
+    finally:
+        GPIO.cleanup()
+
+def main():
+    try:
+        excute_command_thread = threading.Thread(target=excute_command)
+        update_status_thread = threading.Thread(target=update_status)
+
+        excute_command_thread.start()
+        update_status_thread.start()
+
+        excute_command_thread.join()
+        update_status_thread.join()
+    finally:
+        GPIO.cleanup()
 
 if __name__ == '__main__':
     main()
