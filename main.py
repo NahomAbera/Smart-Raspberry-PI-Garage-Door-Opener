@@ -97,19 +97,19 @@ def main():
             update_status()
     finally:
         GPIO.cleanup()
+# #Threaded version
+# def main():
+#     try:
+#         excute_command_thread = threading.Thread(target=excute_command)
+#         update_status_thread = threading.Thread(target=update_status)
 
-def main():
-    try:
-        excute_command_thread = threading.Thread(target=excute_command)
-        update_status_thread = threading.Thread(target=update_status)
+#         excute_command_thread.start()
+#         update_status_thread.start()
 
-        excute_command_thread.start()
-        update_status_thread.start()
-
-        excute_command_thread.join()
-        update_status_thread.join()
-    finally:
-        GPIO.cleanup()
+#         excute_command_thread.join()
+#         update_status_thread.join()
+#     finally:
+#         GPIO.cleanup()
 
 if __name__ == '__main__':
     main()
