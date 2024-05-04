@@ -1,0 +1,5 @@
+{
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "cmake.configureOnOpen": true,
+    "cmake.sourceDirectory": "C:/Users/nahom/OneDrive/Documents/Projects/Smart_Raspberry_PI_Garage_Door_Opener/smart_garage_app/linux"
+}
