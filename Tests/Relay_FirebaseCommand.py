@@ -4,9 +4,6 @@ from firebase_admin import credentials, firestore
 import time
 from datetime import datetime
 
-import time
-
-import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BOARD) 
 GPIO.setwarnings(False)
 GPIO.setup(7, GPIO.OUT)     
@@ -29,8 +26,6 @@ def read_command():
     for door_id, pin in RELAY_PINS.items():
         com = db.collection('Commands').document(f'{door_id}').get()
         stt = db.collection('CurrentStatus').document(f'{door_id}').get()
-        print(stt,"\n")
-        print(com,"\n")
         if com.exists and stt.exists:
             command = com.to_dict().get('command', '')
             current_status = stt.to_dict().get('status', '')
