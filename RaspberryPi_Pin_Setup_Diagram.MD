@@ -22,7 +22,6 @@ Raspberry Pi              Magnetic Switches (Door 2)
 | Physical Pin 34 |------>|NC (open SwitcH)  |
 | Physical Pin 37 |------>|COM (close Switch)|
 | Physical Pin 39 |------>|NC (close Switch) |
-+-----------------+       +------------------+
 
 Raspberry Pi              Fan
 +-----------------+       +---------------+
