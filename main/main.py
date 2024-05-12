@@ -45,17 +45,18 @@ def excute_command():
             com = db.collection('Commands').document(f'{door_id}').get()
             stt = db.collection('CurrentStatus').document(f'{door_id}').get()
             if com.exists and stt.exists:
-                command = com.to_dict().get('command', '')
+                current_command = com.to_dict().get('command', '')
+                last_command = com.to_dict().get('last_command', '')
                 current_status = stt.to_dict().get('status', '')
-                print(current_status," current status\n")
-                print(command ," command\n")
 
                 if current_status == 'opening' or current_status == 'closing':
                     continue
-                elif current_status != command:
+                elif current_command != last_command:
                     GPIO.output(pin, GPIO.LOW)  
                     time.sleep(1)  
                     GPIO.output(pin, GPIO.HIGH)
+                    time.sleep(1)
+                    db.collection('Commands').document(door_id).set({'last_command': current_command}, merge=True)
     except Exception as e:
         print("Error in excute_command:", e)
 
@@ -69,9 +70,9 @@ def update_status():
             switch_2 = GPIO.input(pins[1])
 
             if switch_1 == GPIO.LOW:
-                current_status = 'close'
-            elif switch_2 == GPIO.LOW:
                 current_status = 'open'
+            elif switch_2 == GPIO.LOW:
+                current_status = 'close'
             elif lst_stt.exists:
                 if last_status == 'open' or last_status == 'closing':
                     current_status = 'closing'
@@ -94,7 +95,7 @@ def main():
     try:
         while True:
             excute_command()
-            update_status()
+            # update_status()
     finally:
         GPIO.cleanup()
 
