@@ -95,7 +95,7 @@ def main():
     try:
         while True:
             excute_command()
-            # update_status()
+            update_status()
     finally:
         GPIO.cleanup()
 
