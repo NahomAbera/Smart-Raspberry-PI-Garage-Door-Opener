@@ -1,4 +1,5 @@
-1. Python
-2. firebase-admin
-3. Dart and Flutter
-4. Firebase
+1. Raspberry Pi Bullseye OS
+2. Python
+3. firebase-admin
+4. Dart and Flutter
+5. Firebase
