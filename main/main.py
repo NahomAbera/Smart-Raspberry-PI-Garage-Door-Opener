@@ -55,7 +55,7 @@ def excute_command():
                     GPIO.output(pin, GPIO.LOW)  
                     time.sleep(1)  
                     GPIO.output(pin, GPIO.HIGH)
-                    time.sleep(1)
+                    time.sleep(0.5)
                     db.collection('Commands').document(door_id).set({'last_command': current_command}, merge=True)
     except Exception as e:
         print("Error in excute_command:", e)
