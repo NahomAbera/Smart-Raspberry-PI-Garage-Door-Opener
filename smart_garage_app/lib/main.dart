@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'login_page.dart';
+import 'package:smart_garage_app/garage_control.dart';
+import 'auth_wrapper.dart'; 
 import 'garage_control.dart';
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +24,7 @@ class SmartGarage extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
         ),
       ),
-      home: LoginPage(),
+      home: AuthWrapper(), 
     );
   }
 }

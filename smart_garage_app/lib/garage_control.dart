@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'login_page.dart'; 
 
 class GarageControlPage extends StatefulWidget {
   @override
@@ -8,28 +11,52 @@ class GarageControlPage extends StatefulWidget {
 
 class _GarageControlPageState extends State<GarageControlPage> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color.fromRGBO(2, 44, 67, 1), 
+        backgroundColor: Color.fromRGBO(2, 44, 67, 1),
         title: Text('Smart Garage', style: TextStyle(color: Colors.white)),
       ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Color.fromRGBO(2, 44, 67, 1),
+              ),
+              child: Text(
+                'Menu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text('Logout'),
+              onTap: _logout,
+            ),
+          ],
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(32.0),  
+        padding: EdgeInsets.all(32.0),
         child: Column(
           children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: Text('Developed by Nahom A', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ),
             doorPanel('door1'),
-            SizedBox(height: 25),  
+            SizedBox(height: 25),
             doorPanel('door2'),
             SizedBox(height: 40),
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Text('Developed by Nahom Abera', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              ),
           ],
-          
         ),
       ),
     );
@@ -41,12 +68,12 @@ class _GarageControlPageState extends State<GarageControlPage> {
       child: Padding(
         padding: EdgeInsets.all(24.0),
         child: Container(
-          width: double.infinity, 
+          width: double.infinity,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(doorId.toUpperCase(), style: Theme.of(context).textTheme.headline5),  
+              Text(doorId.toUpperCase(), style: Theme.of(context).textTheme.headline5),
               SizedBox(height: 20),
               StreamBuilder<DocumentSnapshot>(
                 stream: _db.collection('CurrentStatus').doc(doorId).snapshots(),
@@ -87,7 +114,28 @@ class _GarageControlPageState extends State<GarageControlPage> {
     );
   }
 
-  void sendCommand(String command, String doorId) {
-    _db.collection('Commands').doc(doorId).set({'command': command});
+  void sendCommand(String command, String doorId) async {
+    User? user = _auth.currentUser;
+    if (user != null) {
+      String email = user.email!;
+      String formattedDate = DateFormat('MM-dd-yyyy_HH-mm-ss').format(DateTime.now());
+      String documentId = '$formattedDate-$email';
+
+      await _db.collection('Commands').doc(doorId).set({'command': command});
+
+      await _db.collection('DoorLogs').doc(documentId).set({
+        'email': email,
+        'command': command,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  void _logout() async {
+    await _auth.signOut();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => LoginPage()),
+    );
   }
 }
